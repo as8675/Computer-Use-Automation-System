@@ -106,7 +106,7 @@ const StepBaseSchema = z.object({
   checkpoints: z.array(CheckpointSchema).optional(),
 });
 
-const StringStepValueSchema = z.union([
+export const StringStepValueSchema = z.union([
   z.object({ value: z.string() }).strict(),
   z.object({ parameter: ParameterReferenceSchema }).strict(),
 ]);
@@ -159,6 +159,7 @@ export const CapabilityArtifactSchema = z
     inputs: z.record(IdentifierSchema, InputDefinitionSchema),
     outputs: z.record(IdentifierSchema, OutputDefinitionSchema),
     steps: z.array(CapabilityStepSchema).min(1),
+    finalCheckpoint: CheckpointSchema,
     expectedBusinessOutcomes: z.array(ExpectedBusinessOutcomeSchema).optional(),
   })
   .strict();
@@ -167,6 +168,7 @@ export type RiskClassification = z.infer<typeof RiskClassificationSchema>;
 export type InputDefinition = z.infer<typeof InputDefinitionSchema>;
 export type OutputDefinition = z.infer<typeof OutputDefinitionSchema>;
 export type ParameterReference = z.infer<typeof ParameterReferenceSchema>;
+export type StringStepValue = z.infer<typeof StringStepValueSchema>;
 export type LocatorStrategy = z.infer<typeof LocatorStrategySchema>;
 export type ControlTarget = z.infer<typeof ControlTargetSchema>;
 export type Checkpoint = z.infer<typeof CheckpointSchema>;

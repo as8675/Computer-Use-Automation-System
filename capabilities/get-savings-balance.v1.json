@@ -1,0 +1,108 @@
+{
+  "metadata": {
+    "schemaVersion": "1.0.0",
+    "capabilityVersion": "1.0.0",
+    "name": "get-savings-balance",
+    "description": "Looks up a LegacyBank member and returns the current savings balance."
+  },
+  "inputs": {
+    "memberId": {
+      "type": "string",
+      "required": true,
+      "description": "The member ID to look up.",
+      "sensitive": true
+    }
+  },
+  "outputs": {
+    "savingsBalance": {
+      "type": "number",
+      "description": "The member's current savings balance in US dollars."
+    }
+  },
+  "steps": [
+    {
+      "id": "fill-member-id",
+      "type": "fill",
+      "description": "Enter the member ID.",
+      "risk": "safe",
+      "target": {
+        "description": "Member ID field",
+        "locators": [
+          { "type": "role", "role": "textbox", "name": "Member ID" },
+          { "type": "label", "text": "Member ID" },
+          { "type": "css", "selector": "#member-id" }
+        ]
+      },
+      "input": { "parameter": "{{memberId}}" }
+    },
+    {
+      "id": "submit-member-search",
+      "type": "click",
+      "description": "Submit the member search.",
+      "risk": "safe",
+      "target": {
+        "description": "Search button",
+        "locators": [
+          { "type": "role", "role": "button", "name": "Search" },
+          { "type": "text", "text": "Search" },
+          { "type": "css", "selector": "button[type='submit']" }
+        ]
+      }
+    },
+    {
+      "id": "wait-for-member-details",
+      "type": "wait",
+      "description": "Wait for a successful member result.",
+      "risk": "safe",
+      "checkpoint": {
+        "type": "elementVisible",
+        "target": {
+          "description": "Member details heading",
+          "locators": [
+            { "type": "text", "text": "Member Details" },
+            { "type": "css", "selector": "section h2" }
+          ]
+        }
+      },
+      "timeoutMs": 5000
+    },
+    {
+      "id": "extract-savings-balance",
+      "type": "extract",
+      "description": "Read the savings account's current balance.",
+      "risk": "safe",
+      "target": {
+        "description": "Savings current balance cell",
+        "locators": [
+          {
+            "type": "css",
+            "selector": "section table:nth-of-type(2) tbody tr:has(td:first-child:text-is('Savings')) td:last-child"
+          }
+        ]
+      },
+      "output": "savingsBalance"
+    }
+  ],
+  "finalCheckpoint": {
+    "type": "elementVisible",
+    "target": {
+      "description": "Savings current balance cell",
+      "locators": [
+        {
+          "type": "css",
+          "selector": "section table:nth-of-type(2) tbody tr:has(td:first-child:text-is('Savings')) td:last-child"
+        }
+      ]
+    }
+  },
+  "expectedBusinessOutcomes": [
+    {
+      "code": "MEMBER_NOT_FOUND",
+      "description": "No member exists for the supplied member ID.",
+      "when": {
+        "type": "textVisible",
+        "text": "Member not found"
+      }
+    }
+  ]
+}

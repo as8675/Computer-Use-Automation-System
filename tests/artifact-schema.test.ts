@@ -98,6 +98,12 @@ const validCapability: CapabilityArtifact = {
       output: "memberName",
     },
   ],
+  finalCheckpoint: {
+    type: "elementVisible",
+    target: {
+      locators: [{ type: "text", text: "Member Details" }],
+    },
+  },
   expectedBusinessOutcomes: [
     {
       code: "MEMBER_NOT_FOUND",
