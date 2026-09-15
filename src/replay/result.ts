@@ -1,6 +1,8 @@
 import type { AutomationErrorCode } from "../surface/automation-error.js";
+import type { PolicyErrorCode } from "../policy/policy-engine.js";
 
 export type ReplayOutputValue = string | number | boolean;
+export type ReplayErrorCode = AutomationErrorCode | PolicyErrorCode;
 
 export type ReplayResult =
   | {
@@ -15,7 +17,7 @@ export type ReplayResult =
   | {
       status: "failure";
       error: {
-        code: AutomationErrorCode;
+        code: ReplayErrorCode;
         message: string;
         stepId?: string;
         expected?: string;

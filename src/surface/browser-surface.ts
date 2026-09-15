@@ -23,6 +23,7 @@ export type BrowserSurfaceConfig = {
 };
 
 export interface ReplaySurface {
+  readonly targetUrl: string;
   open(): Promise<void>;
   click(target: ControlTarget): Promise<void>;
   fill(target: ControlTarget, value: string): Promise<void>;
@@ -43,6 +44,10 @@ export class BrowserSurface implements ReplaySurface {
     private readonly browserType: BrowserType = chromium,
   ) {
     this.timeoutMs = config.timeoutMs ?? 5_000;
+  }
+
+  get targetUrl(): string {
+    return this.config.appUrl;
   }
 
   async open(): Promise<void> {

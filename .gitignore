@@ -7,6 +7,9 @@ dist/
 artifacts/*
 !artifacts/.gitkeep
 
+evidence/*
+!evidence/.gitkeep
+
 coverage/
 playwright-report/
 test-results/

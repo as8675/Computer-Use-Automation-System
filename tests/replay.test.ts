@@ -7,12 +7,32 @@ import {
   type Checkpoint,
   type ControlTarget,
 } from "../src/artifacts/schema.js";
+import type {
+  EvidenceLoggerLike,
+  EvidenceRun,
+} from "../src/evidence/evidence-logger.js";
 import { ReplayEngine } from "../src/replay/engine.js";
 import { resolveStepValue } from "../src/replay/parameter-resolution.js";
 import {
   BrowserSurface,
   type ReplaySurface,
 } from "../src/surface/browser-surface.js";
+
+const testEvidenceLogger: EvidenceLoggerLike = {
+  async startRun(): Promise<EvidenceRun> {
+    return {
+      runId: "test-run",
+      runDirectory: "test-evidence/test-run",
+      screenshotPath: "test-evidence/test-run/failure.png",
+      async recordStep() {},
+      async finish() {},
+    };
+  },
+};
+
+function createReplayEngine(surface: ReplaySurface): ReplayEngine {
+  return new ReplayEngine(surface, { evidenceLogger: testEvidenceLogger });
+}
 
 const fieldTarget: ControlTarget = {
   locators: [{ type: "label", text: "Member ID" }],
@@ -76,8 +96,10 @@ function createArtifact(): CapabilityArtifact {
 }
 
 class FakeSurface implements ReplaySurface {
+  readonly targetUrl = "http://example.test";
   searched = false;
   closed = false;
+  screenshotCaptured = false;
 
   constructor(
     private readonly options: {
@@ -89,7 +111,9 @@ class FakeSurface implements ReplaySurface {
   async open(): Promise<void> {}
   async fill(): Promise<void> {}
   async select(): Promise<void> {}
-  async captureScreenshot(): Promise<void> {}
+  async captureScreenshot(): Promise<void> {
+    this.screenshotCaptured = true;
+  }
 
   async click(): Promise<void> {
     if (this.options.clickError) throw this.options.clickError;
@@ -135,7 +159,7 @@ describe("parameter resolution", () => {
 describe("ReplayEngine", () => {
   it("returns typed extracted outputs on success", async () => {
     const surface = new FakeSurface();
-    const result = await new ReplayEngine(surface).replay(createArtifact(), {
+    const result = await createReplayEngine(surface).replay(createArtifact(), {
       memberId: "12345",
     });
 
@@ -147,7 +171,7 @@ describe("ReplayEngine", () => {
   });
 
   it("returns a declared business outcome independently of failures", async () => {
-    const result = await new ReplayEngine(
+    const result = await createReplayEngine(
       new FakeSurface({ businessOutcome: true }),
     ).replay(createArtifact(), { memberId: "00000" });
 
@@ -159,9 +183,12 @@ describe("ReplayEngine", () => {
   });
 
   it("returns a structured step failure", async () => {
-    const result = await new ReplayEngine(
-      new FakeSurface({ clickError: new Error("button became detached") }),
-    ).replay(createArtifact(), { memberId: "12345" });
+    const surface = new FakeSurface({
+      clickError: new Error("button became detached"),
+    });
+    const result = await createReplayEngine(surface).replay(createArtifact(), {
+      memberId: "12345",
+    });
 
     expect(result).toEqual({
       status: "failure",
@@ -171,6 +198,7 @@ describe("ReplayEngine", () => {
         stepId: "search",
       },
     });
+    expect(surface.screenshotCaptured).toBe(true);
   });
 });
 
