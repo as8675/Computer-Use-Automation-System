@@ -1,0 +1,23 @@
+{
+  "name": "computer-use-automation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "dev": "tsx watch src/index.ts",
+    "replay": "tsx src/replay/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "playwright": "^1.63.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^3.2.4"
+  }
+}
