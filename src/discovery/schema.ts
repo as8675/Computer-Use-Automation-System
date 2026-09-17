@@ -36,7 +36,9 @@ export const DiscoveryActionSchema = z.discriminatedUnion("type", [
 export const InteractiveControlDescriptionSchema = z
   .object({
     role: NonEmptyStringSchema,
-    name: z.string(),
+    accessibleName: NonEmptyStringSchema.optional(),
+    label: NonEmptyStringSchema.optional(),
+    visibleText: NonEmptyStringSchema.optional(),
     disabled: z.boolean().optional(),
   })
   .strict();
@@ -51,6 +53,12 @@ export const DiscoveryDecisionInputSchema = z
   })
   .strict();
 
+export const DiscoveryObservationSchema = DiscoveryDecisionInputSchema.pick({
+  currentUrl: true,
+  visibleText: true,
+  interactiveControls: true,
+});
+
 export type DiscoveryAction = z.infer<typeof DiscoveryActionSchema>;
 export type InteractiveControlDescription = z.infer<
   typeof InteractiveControlDescriptionSchema
@@ -58,3 +66,4 @@ export type InteractiveControlDescription = z.infer<
 export type DiscoveryDecisionInput = z.infer<
   typeof DiscoveryDecisionInputSchema
 >;
+export type DiscoveryObservation = z.infer<typeof DiscoveryObservationSchema>;
