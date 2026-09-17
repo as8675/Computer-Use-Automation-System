@@ -203,6 +203,41 @@ describe("ReplayEngine", () => {
 });
 
 describe("BrowserSurface locator fallback", () => {
+  it("waits for a clicked control to be re-enabled", async () => {
+    let disabledChecks = 0;
+    const locator = {
+      first: () => locator,
+      waitFor: async () => undefined,
+      click: async () => undefined,
+      isDisabled: async () => {
+        disabledChecks += 1;
+        return disabledChecks < 3;
+      },
+    };
+    const page = {
+      goto: async () => undefined,
+      getByRole: () => locator,
+    };
+    const browserType = {
+      launch: async () => ({
+        newPage: async () => page,
+        close: async () => undefined,
+      }),
+    } as unknown as BrowserType;
+    const surface = new BrowserSurface(
+      { appUrl: "http://example.test", timeoutMs: 500 },
+      browserType,
+    );
+
+    await surface.open();
+    await surface.click({
+      locators: [{ type: "role", role: "button", name: "Search" }],
+    });
+
+    expect(disabledChecks).toBe(3);
+    await surface.close();
+  });
+
   it("tries declared strategies in order", async () => {
     const attempts: string[] = [];
     const locator = (name: string, resolves: boolean) => ({
@@ -239,6 +274,45 @@ describe("BrowserSurface locator fallback", () => {
 
     expect(attempts).toEqual(["role", "label"]);
     expect(resolved).toBeDefined();
+    await surface.close();
+  });
+
+  it("matches declared visible text across descendant elements", async () => {
+    let receivedPattern: RegExp | undefined;
+    const matchedLocator = {
+      last: () => matchedLocator,
+      first: () => matchedLocator,
+      waitFor: async () => undefined,
+    };
+    const page = {
+      goto: async () => undefined,
+      locator: (selector: string) => ({
+        filter: (options: { hasText: RegExp }) => {
+          expect(selector).toBe("*");
+          receivedPattern = options.hasText;
+          return matchedLocator;
+        },
+      }),
+    };
+    const browserType = {
+      launch: async () => ({
+        newPage: async () => page,
+        close: async () => undefined,
+      }),
+    } as unknown as BrowserType;
+    const surface = new BrowserSurface(
+      { appUrl: "http://example.test", timeoutMs: 1 },
+      browserType,
+    );
+
+    await surface.open();
+    await expect(
+      surface.resolveTarget({
+        locators: [{ type: "text", text: "Savings $7,845.44" }],
+      }),
+    ).resolves.toBeDefined();
+    expect(receivedPattern?.test("Savings\n$7,845.44")).toBe(true);
+    expect(receivedPattern?.test("Savings$7,845.44")).toBe(true);
     await surface.close();
   });
 });

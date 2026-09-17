@@ -90,7 +90,9 @@ export class BrowserSurface implements ReplaySurface {
   }
 
   async click(target: ControlTarget): Promise<void> {
-    await (await this.resolveTarget(target)).click();
+    const locator = await this.resolveTarget(target);
+    await locator.click();
+    await this.waitForClickedControl(locator);
   }
 
   async fill(target: ControlTarget, value: string): Promise<void> {
@@ -102,8 +104,8 @@ export class BrowserSurface implements ReplaySurface {
   }
 
   async extractText(target: ControlTarget): Promise<string> {
-    const text = await (await this.resolveTarget(target)).textContent();
-    return text?.trim() ?? "";
+    const text = await (await this.resolveTarget(target)).innerText();
+    return compactText(text, 6_000);
   }
 
   async evaluateCheckpoint(
@@ -181,7 +183,7 @@ export class BrowserSurface implements ReplaySurface {
             const label =
               labels?.length
                 ? Array.from(labels)
-                    .map((item) => item.innerText.trim())
+                    .map((item) => item.textContent?.trim() ?? "")
                     .filter(Boolean)
                     .join(" ")
                 : undefined;
@@ -259,14 +261,46 @@ export class BrowserSurface implements ReplaySurface {
         );
       case "label":
         return page.getByLabel(strategy.text, { exact: true });
-      case "text":
-        return page.getByText(strategy.text, { exact: true });
+      case "text": {
+        const normalizedTextPattern = strategy.text
+          .trim()
+          .split(/\s+/)
+          .map(escapeRegularExpression)
+          // Adjacent elements have no separator in textContent: for example,
+          // <td>Savings</td><td>$7.00</td> becomes "Savings$7.00".
+          .join("\\s*");
+        return page
+          .locator("*")
+          .filter({ hasText: new RegExp(normalizedTextPattern, "i") })
+          .last();
+      }
       case "css":
         return page.locator(strategy.selector);
+    }
+  }
+
+  private async waitForClickedControl(locator: Locator): Promise<void> {
+    // Form submissions commonly disable their trigger while replacing page
+    // content. Give that state a moment to render, then avoid observing the
+    // transient loading UI as the next discovery state.
+    await delay(Math.min(50, this.timeoutMs));
+
+    const deadline = Date.now() + this.timeoutMs;
+    while (await locator.isDisabled().catch(() => false)) {
+      if (Date.now() >= deadline) return;
+      await delay(Math.min(50, Math.max(1, deadline - Date.now())));
     }
   }
 }
 
 function compactText(value: string, maximumLength: number): string {
   return value.replace(/\s+/g, " ").trim().slice(0, maximumLength);
+}
+
+function delay(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+function escapeRegularExpression(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
