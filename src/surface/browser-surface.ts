@@ -11,6 +11,7 @@ import type {
   ControlTarget,
   LocatorStrategy,
 } from "../artifacts/schema.js";
+import type { DiscoveryObservation } from "../discovery/schema.js";
 import {
   AutomationError,
   AutomationErrorCode,
@@ -136,6 +137,103 @@ export class BrowserSurface implements ReplaySurface {
     await this.requirePage().screenshot({ path, fullPage: true });
   }
 
+  async observe(): Promise<DiscoveryObservation> {
+    const page = this.requirePage();
+    const visibleText = compactText(await page.locator("body").innerText(), 6_000);
+    const controls = await page
+      .locator("button, input:not([type='hidden']), a[href], select")
+      .evaluateAll((elements) =>
+        elements
+          .filter((element) => {
+            const style = window.getComputedStyle(element);
+            const bounds = element.getBoundingClientRect();
+            return (
+              style.display !== "none" &&
+              style.visibility !== "hidden" &&
+              bounds.width > 0 &&
+              bounds.height > 0
+            );
+          })
+          .slice(0, 100)
+          .map((element) => {
+            const tagName = element.tagName.toLowerCase();
+            const inputType =
+              element instanceof HTMLInputElement
+                ? element.type.toLowerCase()
+                : undefined;
+            const role =
+              element.getAttribute("role") ||
+              (tagName === "a"
+                ? "link"
+                : tagName === "select"
+                  ? "combobox"
+                  : tagName === "button" ||
+                      ["button", "submit", "reset"].includes(inputType ?? "")
+                    ? "button"
+                    : inputType === "checkbox"
+                      ? "checkbox"
+                      : inputType === "radio"
+                        ? "radio"
+                        : "textbox");
+            const labels = (
+              element as HTMLInputElement | HTMLButtonElement | HTMLSelectElement
+            ).labels;
+            const label =
+              labels?.length
+                ? Array.from(labels)
+                    .map((item) => item.innerText.trim())
+                    .filter(Boolean)
+                    .join(" ")
+                : undefined;
+            const labelledBy = element
+              .getAttribute("aria-labelledby")
+              ?.split(/\s+/)
+              .map((id) => document.getElementById(id)?.textContent?.trim())
+              .filter((text): text is string => Boolean(text))
+              .join(" ");
+            const visibleText =
+              element instanceof HTMLElement
+                ? element.innerText.trim()
+                : element.textContent?.trim();
+            const accessibleName =
+              element.getAttribute("aria-label")?.trim() ||
+              labelledBy ||
+              label ||
+              visibleText ||
+              (element instanceof HTMLInputElement
+                ? element.getAttribute("title")?.trim() || undefined
+                : undefined);
+            const disabled =
+              ("disabled" in element && Boolean(element.disabled)) ||
+              element.getAttribute("aria-disabled") === "true";
+
+            return {
+              role,
+              ...(accessibleName ? { accessibleName } : {}),
+              ...(label ? { label } : {}),
+              ...(visibleText ? { visibleText } : {}),
+              ...(disabled ? { disabled: true } : {}),
+            };
+          }),
+      );
+
+    return {
+      currentUrl: page.url(),
+      visibleText,
+      interactiveControls: controls.map((control) => ({
+        role: compactText(control.role, 80),
+        ...(control.accessibleName
+          ? { accessibleName: compactText(control.accessibleName, 160) }
+          : {}),
+        ...(control.label ? { label: compactText(control.label, 160) } : {}),
+        ...(control.visibleText
+          ? { visibleText: compactText(control.visibleText, 160) }
+          : {}),
+        ...(control.disabled ? { disabled: true } : {}),
+      })),
+    };
+  }
+
   async close(): Promise<void> {
     await this.browser?.close();
     this.browser = undefined;
@@ -167,4 +265,8 @@ export class BrowserSurface implements ReplaySurface {
         return page.locator(strategy.selector);
     }
   }
+}
+
+function compactText(value: string, maximumLength: number): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, maximumLength);
 }
